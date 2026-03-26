@@ -53,33 +53,73 @@ vec3 tetrahedron_verts[4];
 mat4x4 swTranslate(float x, float y, float z) {
   mat4x4 Translate = mat4x4(1);
   Translate[3][0] = x;
-  // todo: y z
-
+  Translate[3][1] = y;
+  Translate[3][2] = z;
+  // GLM函式庫是使用Column-Major，Translate[3][0]代表把平移量放在第四行第一位
   return Translate;
 }
 
 // step1: implement Rotate Matrix
 mat4x4 swRotateX(float angle) {
+  float rad = angle * M_PI / 180.0f; // 將角度轉為弧度
   mat4x4 Rotate = mat4x4(1);
-
+  Rotate[1][1] = cos(rad);
+  Rotate[1][2] = sin(rad);  // Col 1, Row 2，記得是Column-Major
+  Rotate[2][1] = -sin(rad); // Col 2, Row 1
+  Rotate[2][2] = cos(rad);
   return Rotate;
 }
 
 mat4x4 swRotateY(float angle) {
+  float rad = angle * M_PI / 180.0f; // 將角度轉為弧度
   mat4x4 Rotate = mat4x4(1);
-
+  Rotate[0][0] = cos(rad);
+  Rotate[0][2] = -sin(rad);
+  Rotate[2][0] = sin(rad);
+  Rotate[2][2] = cos(rad);
   return Rotate;
 }
 
 mat4x4 swRotateZ(float angle) {
+  float rad = angle * M_PI / 180.0f; // 將角度轉為弧度
   mat4x4 Rotate = mat4x4(1);
-
+  Rotate[0][0] = cos(rad);
+  Rotate[0][1] = sin(rad);
+  Rotate[1][0] = -sin(rad);
+  Rotate[1][1] = cos(rad);
   return Rotate;
 }
 
 // optinal
-mat4x4 swRotate(float angle, float x, float y, float z) {
+mat4x4 swRotate(float angle, float x, float y, float z) { // 實作對任意軸旋轉
   mat4x4 Rotate = mat4x4(1);
+  float rad = angle * M_PI / 180.0f;
+  float c = cos(rad);
+  float s = sin(rad);
+  float k = 1.0f - c;
+
+  // 對輸入的旋轉軸 (x,y,z) 進行正規化 (Normalize)
+  float len = sqrt(x * x + y * y + z * z);
+  if (len < 0.00001f)
+    return Rotate; // 若向量長度為 0 則不旋轉
+  x /= len;
+  y /= len;
+  z /= len;
+
+  // 第 1 行 (Column 0)
+  Rotate[0][0] = x * x * k + c;
+  Rotate[0][1] = y * x * k + z * s;
+  Rotate[0][2] = z * x * k - y * s;
+
+  // 第 2 行 (Column 1)
+  Rotate[1][0] = x * y * k - z * s;
+  Rotate[1][1] = y * y * k + c;
+  Rotate[1][2] = z * y * k + x * s;
+
+  // 第 3 行 (Column 2)
+  Rotate[2][0] = x * z * k + y * s;
+  Rotate[2][1] = y * z * k - x * s;
+  Rotate[2][2] = z * z * k + c;
 
   return Rotate;
 }
@@ -87,7 +127,9 @@ mat4x4 swRotate(float angle, float x, float y, float z) {
 // step1: implement Scale(x, y, z)
 mat4x4 swScale(float x, float y, float z) {
   mat4x4 Scale = mat4x4(1);
-
+  Scale[0][0] = x;
+  Scale[1][1] = y;
+  Scale[2][2] = z;
   return Scale;
 }
 
@@ -334,6 +376,77 @@ void KeyCallback(GLFWwindow *window, int key, int scancode, int action,
   case GLFW_KEY_S:
     glfwSetWindowTitle(window, "translate -y");
     transformMat = swTranslate(0, -1, 0) * transformMat;
+    break;
+
+  // [新增] translate +z / -z
+  case GLFW_KEY_E:
+    glfwSetWindowTitle(window, "translate +z");
+    transformMat = swTranslate(0, 0, 1) * transformMat;
+    break;
+  case GLFW_KEY_D:
+    glfwSetWindowTitle(window, "translate -z");
+    transformMat = swTranslate(0, 0, -1) * transformMat;
+    break;
+
+  // 分別沿 X, Y, Z 軸縮放
+  // X 軸縮放
+  case GLFW_KEY_U:
+    glfwSetWindowTitle(window, "scale +x");
+    transformMat = swScale(1.1f, 1.0f, 1.0f) * transformMat;
+    break;
+  case GLFW_KEY_J:
+    glfwSetWindowTitle(window, "scale -x");
+    transformMat = swScale(0.9f, 1.0f, 1.0f) * transformMat;
+    break;
+
+  // Y 軸縮放
+  case GLFW_KEY_I:
+    glfwSetWindowTitle(window, "scale +y");
+    transformMat = swScale(1.0f, 1.1f, 1.0f) * transformMat;
+    break;
+  case GLFW_KEY_K:
+    glfwSetWindowTitle(window, "scale -y");
+    transformMat = swScale(1.0f, 0.9f, 1.0f) * transformMat;
+    break;
+
+  // Z 軸縮放
+  case GLFW_KEY_O:
+    glfwSetWindowTitle(window, "scale +z");
+    transformMat = swScale(1.0f, 1.0f, 1.1f) * transformMat;
+    break;
+  case GLFW_KEY_L:
+    glfwSetWindowTitle(window, "scale -z");
+    transformMat = swScale(1.0f, 1.0f, 0.9f) * transformMat;
+    break;
+
+  // [新增] rotate X
+  case GLFW_KEY_R:
+    glfwSetWindowTitle(window, "rotate +x");
+    transformMat = swRotateX(5.0f) * transformMat;
+    break;
+  case GLFW_KEY_F:
+    glfwSetWindowTitle(window, "rotate -x");
+    transformMat = swRotateX(-5.0f) * transformMat;
+    break;
+
+  // [新增] rotate Y
+  case GLFW_KEY_T:
+    glfwSetWindowTitle(window, "rotate +y");
+    transformMat = swRotateY(5.0f) * transformMat;
+    break;
+  case GLFW_KEY_G:
+    glfwSetWindowTitle(window, "rotate -y");
+    transformMat = swRotateY(-5.0f) * transformMat;
+    break;
+
+  // [新增] rotate Z
+  case GLFW_KEY_Y:
+    glfwSetWindowTitle(window, "rotate +z");
+    transformMat = swRotateZ(5.0f) * transformMat;
+    break;
+  case GLFW_KEY_H:
+    glfwSetWindowTitle(window, "rotate -z");
+    transformMat = swRotateZ(-5.0f) * transformMat;
     break;
 
     // Add other keys as needed.
