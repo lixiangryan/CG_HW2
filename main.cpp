@@ -15,8 +15,10 @@
 using namespace std;
 using namespace glm;
 
-const bool STEP2 = false;
-const bool STEP3 = false;
+// const bool STEP2 = false;
+const bool STEP2 = true;
+// const bool STEP3 = false;
+const bool STEP3 = true;
 
 float theta = 3.14159f / 4.0f;
 float tho = 3.14159f / 4.0f;
@@ -137,7 +139,7 @@ mat4x4 swScale(float x, float y, float z) {
 mat4x4 swLookAt(float eyeX, float eyeY, float eyeZ, float centerX,
                 float centerY, float centerZ, float upX, float upY, float upZ) {
   mat4x4 V = mat4x4(1);
-  
+
   // 把輸入轉成向量方便計算
   vec3 eye(eyeX, eyeY, eyeZ);
   vec3 center(centerX, centerY, centerZ);
@@ -151,9 +153,15 @@ mat4x4 swLookAt(float eyeX, float eyeY, float eyeZ, float centerX,
 
   // 2. 填入 View Matrix (注意 Column-Major 的寫法)
   // 第 1 到 3 行 (Column 0, 1, 2) 的前三個元素負責旋轉
-  V[0][0] = s.x;  V[1][0] = s.y;  V[2][0] = s.z;
-  V[0][1] = u.x;  V[1][1] = u.y;  V[2][1] = u.z;
-  V[0][2] = -f.x; V[1][2] = -f.y; V[2][2] = -f.z;
+  V[0][0] = s.x;
+  V[1][0] = s.y;
+  V[2][0] = s.z;
+  V[0][1] = u.x;
+  V[1][1] = u.y;
+  V[2][1] = u.z;
+  V[0][2] = -f.x;
+  V[1][2] = -f.y;
+  V[2][2] = -f.z;
 
   // 第 4 行 (Column 3) 負責平移 (Translate)
   V[3][0] = -dot(s, eye);
@@ -164,9 +172,26 @@ mat4x4 swLookAt(float eyeX, float eyeY, float eyeZ, float centerX,
 }
 
 // step3: implement perspective projection matrix
-mat4x4 swPerspective(float fovyDeg, float aspect, float near, float far) {
-  mat4x4 P = mat4x4(0);
+mat4x4 swPerspective(float fovyDeg, float aspect, float zNear, float zFar) {
+  // 將 near, far 參數改名為 zNear, zFar，避免跟 Windows 標頭檔的巨集衝突
+  mat4x4 P = mat4x4(0); // 投影矩陣大部分都是 0，所以從全 0 開始
+
+  float rad = fovyDeg * 3.1415926535f / 180.0f;
+  float f = 1.0f / tan(rad / 2.0f); // 就是 cot(fovy / 2)
+
   // todo: fill in P
+  // 依照 Column-Major 的規則填入
+  P[0][0] = f / aspect;
+  P[1][1] = f;
+
+  // Z 的深度映射會計算到 [-1, 1] (或 [0, 1] 視 OpenGL 實作，這裡用標準 OpenGL
+  // 的 [-1, 1])
+  P[2][2] = -(zFar + zNear) / (zFar - zNear);
+  P[2][3] = -1.0f; // 讓輸出的 w 值變成原本的 -z (或是 z)，這是 Perspective
+                   // Divide 的關鍵
+
+  P[3][2] = -(2.0f * zFar * zNear) / (zFar - zNear);
+
   return P;
 }
 
@@ -194,7 +219,27 @@ void swTriangle(vec3 color, vec3 in_v1, vec3 in_v2, vec3 in_v3,
   if (STEP3) {
     v1 = ProjectionMat * v1;
     // todo: v2, v3
+    v2 = ProjectionMat * v2;
+    v3 = ProjectionMat * v3;
+
     // todo: perspective division (divide x,y,z by w)
+    // 把 4D 齊次座標 (Homogeneous Coordinates) 轉換為 3D 的 Normalized Device
+    // Coordinates (NDC)
+    if (v1.w != 0.0f) {
+      v1.x /= v1.w;
+      v1.y /= v1.w;
+      v1.z /= v1.w;
+    }
+    if (v2.w != 0.0f) {
+      v2.x /= v2.w;
+      v2.y /= v2.w;
+      v2.z /= v2.w;
+    }
+    if (v3.w != 0.0f) {
+      v3.x /= v3.w;
+      v3.y /= v3.w;
+      v3.z /= v3.w;
+    }
   }
 
   // result passed to OpenGL as NDC or world coords depending on active steps
