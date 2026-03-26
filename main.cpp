@@ -136,8 +136,29 @@ mat4x4 swScale(float x, float y, float z) {
 // step2:
 mat4x4 swLookAt(float eyeX, float eyeY, float eyeZ, float centerX,
                 float centerY, float centerZ, float upX, float upY, float upZ) {
-  mat4x4 V = mat4x4(0);
+  mat4x4 V = mat4x4(1);
+  
+  // 把輸入轉成向量方便計算
+  vec3 eye(eyeX, eyeY, eyeZ);
+  vec3 center(centerX, centerY, centerZ);
+  vec3 up(upX, upY, upZ);
+
   // todo: fill in V
+  // 1. 計算相機座標系的三個正交基底 (Forward, Right, Up)
+  vec3 f = normalize(center - eye); // Forward: 從眼睛看向目標點
+  vec3 s = normalize(cross(f, up)); // Right: 透過外積算出右邊方向
+  vec3 u = cross(s, f);             // Up: 再外積一次確保這三個軸完全垂直
+
+  // 2. 填入 View Matrix (注意 Column-Major 的寫法)
+  // 第 1 到 3 行 (Column 0, 1, 2) 的前三個元素負責旋轉
+  V[0][0] = s.x;  V[1][0] = s.y;  V[2][0] = s.z;
+  V[0][1] = u.x;  V[1][1] = u.y;  V[2][1] = u.z;
+  V[0][2] = -f.x; V[1][2] = -f.y; V[2][2] = -f.z;
+
+  // 第 4 行 (Column 3) 負責平移 (Translate)
+  V[3][0] = -dot(s, eye);
+  V[3][1] = -dot(u, eye);
+  V[3][2] = dot(f, eye);
 
   return V;
 }
@@ -165,6 +186,8 @@ void swTriangle(vec3 color, vec3 in_v1, vec3 in_v2, vec3 in_v3,
   if (STEP2) {
     v1 = ViewMat * v1;
     // todo: v2, v3
+    v2 = ViewMat * v2;
+    v3 = ViewMat * v3;
   }
 
   // VIEW -> CLIP SPACE -> NDC  (step3: projection + perspective divide)
@@ -378,7 +401,7 @@ void KeyCallback(GLFWwindow *window, int key, int scancode, int action,
     transformMat = swTranslate(0, -1, 0) * transformMat;
     break;
 
-  // [新增] translate +z / -z
+  // translate +z / -z
   case GLFW_KEY_E:
     glfwSetWindowTitle(window, "translate +z");
     transformMat = swTranslate(0, 0, 1) * transformMat;
@@ -419,7 +442,7 @@ void KeyCallback(GLFWwindow *window, int key, int scancode, int action,
     transformMat = swScale(1.0f, 1.0f, 0.9f) * transformMat;
     break;
 
-  // [新增] rotate X
+  // rotate X
   case GLFW_KEY_R:
     glfwSetWindowTitle(window, "rotate +x");
     transformMat = swRotateX(5.0f) * transformMat;
@@ -429,7 +452,7 @@ void KeyCallback(GLFWwindow *window, int key, int scancode, int action,
     transformMat = swRotateX(-5.0f) * transformMat;
     break;
 
-  // [新增] rotate Y
+  // rotate Y
   case GLFW_KEY_T:
     glfwSetWindowTitle(window, "rotate +y");
     transformMat = swRotateY(5.0f) * transformMat;
@@ -439,7 +462,7 @@ void KeyCallback(GLFWwindow *window, int key, int scancode, int action,
     transformMat = swRotateY(-5.0f) * transformMat;
     break;
 
-  // [新增] rotate Z
+  // rotate Z
   case GLFW_KEY_Y:
     glfwSetWindowTitle(window, "rotate +z");
     transformMat = swRotateZ(5.0f) * transformMat;
