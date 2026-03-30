@@ -9,13 +9,13 @@
 
 // OpenGL Mathematics (GLM)  https://glm.g-truc.net/
 #include <glm/mat4x4.hpp>
-#include <glm/vec3.hpp>
 #include <glm/vec4.hpp>
 
 #include <vector>
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <stack>
 
 using namespace std;
 using namespace glm;
@@ -61,7 +61,24 @@ vec3 default_cube_vertices[8] = {
 };
 vec3 cube_verts[8];
 
-int current_shape = 1; // 1: Tetrahedron, 2: Cube
+int current_shape = 1; // 1: Tetrahedron, 2: Cube, 3: Teapot, 4: Hierarchy
+
+// === Hierarchy (Push/Pop Matrix) 實作 ===
+stack<mat4x4> transformStack;
+
+void swPushMatrix() {
+  transformStack.push(transformMat);
+}
+
+void swPopMatrix() {
+  if (!transformStack.empty()) {
+    transformMat = transformStack.top();
+    transformStack.pop();
+  } else {
+    cout << "錯誤: Transform stack 為空，無法 pop!" << endl;
+  }
+}
+// ========================================
 
 // NOTE: GLM uses COLUMN-MAJOR order: mat[col][row]
 // A translation matrix looks like:
@@ -399,6 +416,46 @@ void Draw_ImportedModel() {
   glEnd();
 }
 
+void Draw_Hierarchy() {
+  // 取得目前自程式開啟後所經過的時間，做為動畫 (旋轉角度) 依據
+  float time = glfwGetTime();
+
+  // 把進入 Hierarchy 前原始的 transformMat 保留起來 (確保外面的平移旋轉能套用套整個太陽系)
+  swPushMatrix();
+
+  // ====== 太陽 (Sun) ======
+  swPushMatrix();
+    // 太陽自身的自轉 (改為繞 Z 軸)
+    transformMat = transformMat * swRotateZ(time * 20.0f);
+    // 放得大一點
+    transformMat = transformMat * swScale(2.0f, 2.0f, 2.0f);
+    Draw_Cube();  // 畫出太陽
+  swPopMatrix();
+
+  // ====== 地球 (Earth) ======
+  // 計算地球的「公轉」軌道：先自中心繞 Z 軸旋轉，再平移
+  transformMat = transformMat * swRotateZ(time * 50.0f) * swTranslate(4.0f, 0.0f, 0.0f);
+  
+  // 地球本體的繪製 (我們不希望地球的自轉去影響月球，所以把他夾在 Push 跟 Pop 之間)
+  swPushMatrix();
+    // 地球繞 Z 軸自身的自轉 + 縮得比太陽小
+    transformMat = transformMat * swRotateZ(time * 100.0f) * swScale(0.8f, 0.8f, 0.8f);
+    Draw_Cube();
+  swPopMatrix();
+
+  // ====== 月球 (Moon) ======
+  // 因為剛剛地球 POP 出來了，所以現在系統中的 transformMat 還停在「未自轉的地球座標中心」
+  // 以地球作為基礎點，計算月球繞 Z 軸的公轉與平移
+  transformMat = transformMat * swRotateZ(time * 150.0f) * swTranslate(1.5f, 0.0f, 0.0f);
+  
+  // 月球本體繞 Z 軸的自轉與縮放
+  transformMat = transformMat * swRotateZ(time * 200.0f) * swScale(0.3f, 0.3f, 0.3f);
+  Draw_Cube(); // 畫出月球
+
+  // 整個系統繪製完畢，恢復進入太陽系前的矩陣狀態
+  swPopMatrix();
+}
+
 void DrawGrid(int size = 10) {
   glBegin(GL_LINES);
   glColor3f(0.3, 0.3, 0.3);
@@ -475,6 +532,8 @@ void Display(GLFWwindow *window) {
     Draw_Cube();
   } else if (current_shape == 3) {
     Draw_ImportedModel();
+  } else if (current_shape == 4) {
+    Draw_Hierarchy();
   }
 
   glFlush();
@@ -530,6 +589,12 @@ void SpecialKey(GLFWwindow *window, int key, int scancode, int action,
     transformMat = swTranslate(0, -1.5f, 0) * swScale(0.15f, 0.15f, 0.15f);
     break;
 
+  case GLFW_KEY_F4:
+    glfwSetWindowTitle(window, "F4: Solar System Animated Hierarchy");
+    current_shape = 4;
+    transformMat = mat4x4(1); // 歸零
+    break;
+
   case GLFW_KEY_F5:
     glfwSetWindowTitle(window, "F5: SAVE");
     // Add save functionality here.
@@ -554,7 +619,7 @@ void KeyCallback(GLFWwindow *window, int key, int scancode, int action,
   // Here you can handle both regular and special keys.
   // Call your special key function for function keys.
   if (key == GLFW_KEY_F1 || key == GLFW_KEY_F2 || key == GLFW_KEY_F3 ||
-      key == GLFW_KEY_F5 || key == GLFW_KEY_F6) {
+      key == GLFW_KEY_F4 || key == GLFW_KEY_F5 || key == GLFW_KEY_F6) {
     SpecialKey(window, key, scancode, action, mods);
   }
 
