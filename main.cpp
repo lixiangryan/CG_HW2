@@ -16,6 +16,8 @@
 #include <sstream>
 #include <string>
 #include <stack>
+#include <algorithm>
+#include <cmath>
 
 using namespace std;
 using namespace glm;
@@ -24,6 +26,7 @@ using namespace glm;
 const bool STEP2 = true;
 // const bool STEP3 = false;
 const bool STEP3 = true;
+const bool STEP4 = true; // 啟動軟體成像 (Software Rasterization)
 
 float theta = 3.14159f / 4.0f;
 float tho = 3.14159f / 4.0f;
@@ -280,17 +283,72 @@ void swTriangle(vec3 color, vec3 in_v1, vec3 in_v2, vec3 in_v3,
     }
   }
 
-  // result passed to OpenGL as NDC or world coords depending on active steps
-  glColor3f(color.r, color.g, color.b);
-  glVertex3f(v1.x, v1.y, v1.z);
-  glVertex3f(v2.x, v2.y, v2.z);
-  glVertex3f(v3.x, v3.y, v3.z);
+  if (STEP4) {
+    // ==== 軟體光柵化 (Software Rasterization) ====
+    // 1. 將 NDC [-1, 1] 轉換到畫面像素座標 [0, winWidth-1], [0, winHeight-1]
+    auto toScreen = [](vec4 v, int w_width, int w_height) {
+      return vec3((v.x + 1.0f) * 0.5f * w_width, (v.y + 1.0f) * 0.5f * w_height, v.z);
+    };
+    vec3 p1 = toScreen(v1, winWidth, winHeight);
+    vec3 p2 = toScreen(v2, winWidth, winHeight);
+    vec3 p3 = toScreen(v3, winWidth, winHeight);
+
+    // 2. 計算 Bounding Box，並限制在畫面範圍內
+    int minX = std::max(0, (int)std::floor(std::min({p1.x, p2.x, p3.x})));
+    int maxX = std::min(winWidth - 1, (int)std::ceil(std::max({p1.x, p2.x, p3.x})));
+    int minY = std::max(0, (int)std::floor(std::min({p1.y, p2.y, p3.y})));
+    int maxY = std::min(winHeight - 1, (int)std::ceil(std::max({p1.y, p2.y, p3.y})));
+
+    // Edge Function (Cross Product)
+    auto edgeFunc = [](vec3 a, vec3 b, vec3 c) {
+      return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+    };
+
+    float area = edgeFunc(p1, p2, p3);
+    
+    // 忽略近乎成一直線的退化三角形
+    if (std::abs(area) > 1e-4) {
+      glColor3f(color.r, color.g, color.b);
+      
+      // 3. 測試 Bounding Box 內的每一個像素
+      for (int x = minX; x <= maxX; x++) {
+        for (int y = minY; y <= maxY; y++) {
+          // 以像素中心為採樣點
+          vec3 p(x + 0.5f, y + 0.5f, 0.0f);
+          
+          float w1 = edgeFunc(p2, p3, p) / area;
+          float w2 = edgeFunc(p3, p1, p) / area;
+          float w3 = edgeFunc(p1, p2, p) / area;
+
+          // 若全 >= 0 或是 全 <= 0 代表在三角形內部 (這裡用 area 相除後只須判斷大於等於 0)
+          if (w1 >= 0 && w2 >= 0 && w3 >= 0) {
+            // 利用重心座標 (Barycentric Coordinates) 內插 Z 深度
+            float z = w1 * p1.z + w2 * p2.z + w3 * p3.z;
+            
+            // 將像素座標退回 NDC 中心，餵給 OpenGL 繪製這一個單一像素 (透過 GL_POINTS)
+            // 這樣可以省略自己實作 Z-Buffer，交給 OpenGL 原生的 GL_DEPTH_TEST 把關
+            float ndc_X = (x * 2.0f / winWidth) - 1.0f;
+            float ndc_Y = (y * 2.0f / winHeight) - 1.0f;
+            
+            glVertex3f(ndc_X, ndc_Y, z);
+          }
+        }
+      }
+    }
+  } else {
+    // 原本交由硬體成像 (Hardware Rasterization) 
+    glColor3f(color.r, color.g, color.b);
+    glVertex3f(v1.x, v1.y, v1.z);
+    glVertex3f(v2.x, v2.y, v2.z);
+    glVertex3f(v3.x, v3.y, v3.z);
+  }
 }
 
 void Draw_Tetrahedron() {
   vec3 color(1, 1, 0);
   // glColor3f(1, 1, 0);
-  glBegin(GL_TRIANGLES);
+  if (STEP4) glBegin(GL_POINTS);
+  else glBegin(GL_TRIANGLES);
 
   swTriangle(vec3(1, 0, 0), tetrahedron_verts[0], tetrahedron_verts[1],
              tetrahedron_verts[2], transformMat);
@@ -308,7 +366,8 @@ void Draw_Tetrahedron() {
 }
 
 void Draw_Cube() {
-  glBegin(GL_TRIANGLES);
+  if (STEP4) glBegin(GL_POINTS);
+  else glBegin(GL_TRIANGLES);
 
   // 一個正方體有 6 個面，每個面 2 個三角形，以逆時針方向定義頂點
   int indices[36] = {
@@ -402,7 +461,8 @@ bool LoadOBJ(const char *path) {
 void Draw_ImportedModel() {
   if (imported_indices.empty()) return;
 
-  glBegin(GL_TRIANGLES);
+  if (STEP4) glBegin(GL_POINTS);
+  else glBegin(GL_TRIANGLES);
   vec3 color(1.0f, 0.6f, 0.2f); // 給茶壺填上橘色
 
   for (size_t i = 0; i < imported_indices.size(); i += 3) {

@@ -41,13 +41,17 @@
 ---
 
 ## 開發細節
-補全了以下電腦圖學核心矩陣演算法的實作：
+本專案詳細實作了以下電腦圖學核心演算法與渲染管線：
 1. **Model Transform** (`swTranslate`, `swRotateX/Y/Z`, `swScale`, `swRotate`)
-2. **View Transform** (`swLookAt`)
-3. **Projection Transform** (`swPerspective`)
+2. **View Transform** (`swLookAt` 建立觀察矩陣)
+3. **Projection Transform** (`swPerspective` 透視投影)
+4. **Software Rasterization** (利用 Barycentric Coordinates 實作軟體三角形光柵化)
 
 ### 開關設定
-在 `main.cpp` 開頭中可以透過修改 `STEP2` 及 `STEP3` 常數，開關 `true` 或 `false` 來啟用或關閉「視角轉換 (View)」與「透視投影 (Projection)」。
+在 `main.cpp` 開頭處可透過修改以下常數，獨立檢視渲染管線的各個階段：
+* `STEP2`: 開啟或關閉 **視角轉換 (View Transform)**
+* `STEP3`: 開啟或關閉 **透視投影 (Perspective Projection)**
+* `STEP4`: 開啟或關閉 **軟體光柵化 (Software Rasterization)**。設為 `true` 時，程式將捨棄硬體 API 加速，改用自研的 Barycentric Coordinates (重心座標法) 逐像素計算深度與顏色，並將離散像素以 `GL_POINTS` 直接繪製至螢幕上。
 
 ### OBJ 動態讀取
 本專案內建輕量化 OBJ parser，並支援 Quad 或 Triangle 面解析。若要更改載入模型，只需替換工作目錄中的 `.obj` 檔案，或自定義 `LoadOBJ()` 的路徑即可。
