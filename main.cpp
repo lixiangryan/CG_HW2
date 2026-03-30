@@ -62,6 +62,7 @@ vec3 default_cube_vertices[8] = {
 vec3 cube_verts[8];
 
 int current_shape = 1; // 1: Tetrahedron, 2: Cube, 3: Teapot, 4: Hierarchy
+bool is_local_mode = false; // 紀錄目前是世界座標還是物件座標模式
 
 // === Hierarchy (Push/Pop Matrix) 實作 ===
 stack<mat4x4> transformStack;
@@ -548,6 +549,57 @@ void init() {
   glDepthFunc(GL_LEQUAL);
 }
 
+// 儲存目前的場景狀態
+void SaveScene(const char* filename) {
+  ofstream out(filename);
+  if (!out.is_open()) {
+    cout << "❌ Failed to save scene into " << filename << endl;
+    return;
+  }
+  
+  out << current_shape << "\n";
+  out << is_local_mode << "\n";
+  out << theta << "\n";
+  
+  // 儲存 transformMat 的所有 16 個浮點數 (Column-Major)
+  for (int col = 0; col < 4; col++) {
+    for (int row = 0; row < 4; row++) {
+      out << transformMat[col][row] << " ";
+    }
+  }
+  out << "\n";
+  
+  out.close();
+  cout << "💾 Scene successfully saved to " << filename << endl;
+}
+
+// 載入之前的場景狀態
+void LoadScene(const char* filename) {
+  ifstream in(filename);
+  if (!in.is_open()) {
+    cout << "❌ Failed to load scene from " << filename << " (File doesn't exist?)" << endl;
+    return;
+  }
+  
+  in >> current_shape;
+  in >> is_local_mode;
+  in >> theta;
+  
+  for (int col = 0; col < 4; col++) {
+    for (int row = 0; row < 4; row++) {
+      in >> transformMat[col][row];
+    }
+  }
+  in.close();
+  
+  // 如果載入的狀態是要秀模型，確保模型已經被載入了
+  if (current_shape == 3 && imported_verts.empty()) {
+    LoadOBJ("teapot.obj");
+  }
+  
+  cout << "📂 Scene successfully loaded from " << filename << endl;
+}
+
 // Converted special key function for GLFW.
 void SpecialKey(GLFWwindow *window, int key, int scancode, int action,
                 int mods) {
@@ -596,23 +648,19 @@ void SpecialKey(GLFWwindow *window, int key, int scancode, int action,
     break;
 
   case GLFW_KEY_F5:
-    glfwSetWindowTitle(window, "F5: SAVE");
-    // Add save functionality here.
-
+    glfwSetWindowTitle(window, "F5: SAVE SCENE");
+    SaveScene("scene.txt");
     break;
 
   case GLFW_KEY_F6:
-    glfwSetWindowTitle(window, "F6: LOAD");
-    // Add load functionality here.
-
+    glfwSetWindowTitle(window, "F6: LOAD SCENE");
+    LoadScene("scene.txt");
     break;
 
   default:
     break;
   }
 }
-
-bool is_local_mode = false; // 紀錄目前是世界座標還是物件座標模式
 
 void KeyCallback(GLFWwindow *window, int key, int scancode, int action,
                  int mods) {
