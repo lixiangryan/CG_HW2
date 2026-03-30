@@ -43,6 +43,21 @@ vec3 default_tetrahedron_vertices[4] = {vec3(1, 0, 0), vec3(0, 1, 0),
                                         vec3(0, 0, 1), vec3(0, 0, 0)};
 vec3 tetrahedron_verts[4];
 
+// 定義一個 Cube 的 8 個頂點 (設定在 -0.5 ~ 0.5 的範圍，使其置中)
+vec3 default_cube_vertices[8] = {
+    vec3(-0.5, -0.5,  0.5), // 0:前左下
+    vec3( 0.5, -0.5,  0.5), // 1:前右下
+    vec3( 0.5,  0.5,  0.5), // 2:前右上
+    vec3(-0.5,  0.5,  0.5), // 3:前左上
+    vec3(-0.5, -0.5, -0.5), // 4:後左下
+    vec3( 0.5, -0.5, -0.5), // 5:後右下
+    vec3( 0.5,  0.5, -0.5), // 6:後右上
+    vec3(-0.5,  0.5, -0.5)  // 7:後左上
+};
+vec3 cube_verts[8];
+
+int current_shape = 1; // 1: Tetrahedron, 2: Cube
+
 // NOTE: GLM uses COLUMN-MAJOR order: mat[col][row]
 // A translation matrix looks like:
 //   mat[0] = {1, 0, 0, 0}   (column 0)
@@ -269,6 +284,34 @@ void Draw_Tetrahedron() {
   glEnd();
 }
 
+void Draw_Cube() {
+  glBegin(GL_TRIANGLES);
+
+  // 一個正方體有 6 個面，每個面 2 個三角形，以逆時針方向定義頂點
+  int indices[36] = {
+    0, 1, 2,  2, 3, 0, // 前面
+    1, 5, 6,  6, 2, 1, // 右面
+    5, 4, 7,  7, 6, 5, // 後面
+    4, 0, 3,  3, 7, 4, // 左面
+    3, 2, 6,  6, 7, 3, // 上面
+    4, 5, 1,  1, 0, 4  // 下面
+  };
+
+  // 給每個面不同的顏色以便區分
+  vec3 colors[6] = {
+    vec3(1, 0, 0), vec3(0, 1, 0), vec3(0, 0, 1),
+    vec3(1, 1, 0), vec3(1, 0, 1), vec3(0, 1, 1)
+  };
+
+  for (int i = 0; i < 6; i++) {
+    // 每個面有兩個三角形
+    swTriangle(colors[i], cube_verts[indices[i*6]], cube_verts[indices[i*6+1]], cube_verts[indices[i*6+2]], transformMat);
+    swTriangle(colors[i], cube_verts[indices[i*6+3]], cube_verts[indices[i*6+4]], cube_verts[indices[i*6+5]], transformMat);
+  }
+
+  glEnd();
+}
+
 void DrawGrid(int size = 10) {
   glBegin(GL_LINES);
   glColor3f(0.3, 0.3, 0.3);
@@ -338,7 +381,12 @@ void Display(GLFWwindow *window) {
                        1); // sets ViewMat
   }
 
-  Draw_Tetrahedron();
+  // 根據選擇的形狀來渲染
+  if (current_shape == 1) {
+    Draw_Tetrahedron();
+  } else if (current_shape == 2) {
+    Draw_Cube();
+  }
 
   glFlush();
   glfwSwapBuffers(window);
@@ -362,6 +410,8 @@ void SpecialKey(GLFWwindow *window, int key, int scancode, int action,
   switch (key) {
   case GLFW_KEY_F1:
     glfwSetWindowTitle(window, "F1: add a tetrahedron");
+    current_shape = 1;
+    transformMat = mat4x4(1); // 切換形狀時可順便重置變換矩陣
     for (int i = 0; i < 4; i++) {
       tetrahedron_verts[i][0] = default_tetrahedron_vertices[i][0];
       tetrahedron_verts[i][1] = default_tetrahedron_vertices[i][1];
@@ -370,8 +420,14 @@ void SpecialKey(GLFWwindow *window, int key, int scancode, int action,
     break;
 
   case GLFW_KEY_F2:
-    glfwSetWindowTitle(window, "F2: add a cube or somthing");
-    // Add additional functionality here.
+    glfwSetWindowTitle(window, "F2: add a cube");
+    current_shape = 2;
+    transformMat = mat4x4(1);
+    for (int i = 0; i < 8; i++) {
+      cube_verts[i][0] = default_cube_vertices[i][0];
+      cube_verts[i][1] = default_cube_vertices[i][1];
+      cube_verts[i][2] = default_cube_vertices[i][2];
+    }
     break;
 
   case GLFW_KEY_F5:
