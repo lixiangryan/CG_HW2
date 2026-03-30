@@ -12,6 +12,11 @@
 #include <glm/vec3.hpp>
 #include <glm/vec4.hpp>
 
+#include <vector>
+#include <fstream>
+#include <sstream>
+#include <string>
+
 using namespace std;
 using namespace glm;
 
@@ -312,6 +317,88 @@ void Draw_Cube() {
   glEnd();
 }
 
+vector<vec3> imported_verts;
+vector<int> imported_indices;
+
+bool LoadOBJ(const char *path) {
+  imported_verts.clear();
+  imported_indices.clear();
+  
+  // 嘗試在目前目錄開啟
+  ifstream file(path);
+  if (!file.is_open()) {
+    // 可能是因 CMake build/ 資料夾的關係，試試看上一層目錄
+    string fallback = string("../") + path;
+    file.open(fallback);
+    if (!file.is_open()) {
+      cout << "Failed to open " << path << " (也找不到 " << fallback << ")!" << endl;
+      return false;
+    }
+    cout << "找到模型檔於: " << fallback << endl;
+  } else {
+    cout << "找到模型檔於: " << path << endl;
+  }
+
+  string line;
+  while (getline(file, line)) {
+    istringstream iss(line);
+    string type;
+    iss >> type;
+    if (type == "v") {
+      float x, y, z;
+      iss >> x >> y >> z;
+      imported_verts.push_back(vec3(x, y, z));
+    } else if (type == "f") {
+      string v1, v2, v3, v4;
+      iss >> v1 >> v2 >> v3;
+      auto parse_idx = [](const string &s) {
+        size_t pos = s.find('/');
+        if (pos != string::npos) {
+          return stoi(s.substr(0, pos)) - 1;
+        }
+        return stoi(s) - 1;
+      };
+      if (!v1.empty() && !v2.empty() && !v3.empty()) {
+        imported_indices.push_back(parse_idx(v1));
+        imported_indices.push_back(parse_idx(v2));
+        imported_indices.push_back(parse_idx(v3));
+      }
+      if (iss >> v4 && !v4.empty()) {
+        imported_indices.push_back(parse_idx(v1));
+        imported_indices.push_back(parse_idx(v3));
+        imported_indices.push_back(parse_idx(v4));
+      }
+    }
+  }
+  
+  if (imported_verts.empty()) {
+    cout << "模型檔案讀取失敗或格式不對！" << endl;
+    return false;
+  }
+
+  cout << "載入模型成功: " << imported_verts.size() << " 個頂點, " 
+       << (imported_indices.size() / 3) << " 個三角形" << endl;
+  return true;
+}
+
+void Draw_ImportedModel() {
+  if (imported_indices.empty()) return;
+
+  glBegin(GL_TRIANGLES);
+  vec3 color(1.0f, 0.6f, 0.2f); // 給茶壺填上橘色
+
+  for (size_t i = 0; i < imported_indices.size(); i += 3) {
+    int idx0 = imported_indices[i];
+    int idx1 = imported_indices[i + 1];
+    int idx2 = imported_indices[i + 2];
+
+    swTriangle(color, imported_verts[idx0], imported_verts[idx1],
+               imported_verts[idx2], transformMat);
+  }
+
+  glEnd();
+}
+
 void DrawGrid(int size = 10) {
   glBegin(GL_LINES);
   glColor3f(0.3, 0.3, 0.3);
@@ -386,6 +473,8 @@ void Display(GLFWwindow *window) {
     Draw_Tetrahedron();
   } else if (current_shape == 2) {
     Draw_Cube();
+  } else if (current_shape == 3) {
+    Draw_ImportedModel();
   }
 
   glFlush();
@@ -430,6 +519,17 @@ void SpecialKey(GLFWwindow *window, int key, int scancode, int action,
     }
     break;
 
+  case GLFW_KEY_F3:
+    glfwSetWindowTitle(window, "F3: Utah Teapot");
+    current_shape = 3;
+    if (imported_verts.empty()) {
+      LoadOBJ("teapot.obj");
+    }
+    // Utah Teapot 預設模型比較偏大而且偏低，這裡預設給它一個順眼的縮小和位移
+    transformMat = mat4x4(1);
+    transformMat = swTranslate(0, -1.5f, 0) * swScale(0.15f, 0.15f, 0.15f);
+    break;
+
   case GLFW_KEY_F5:
     glfwSetWindowTitle(window, "F5: SAVE");
     // Add save functionality here.
@@ -451,8 +551,8 @@ void KeyCallback(GLFWwindow *window, int key, int scancode, int action,
                  int mods) {
   // Here you can handle both regular and special keys.
   // Call your special key function for function keys.
-  if (key == GLFW_KEY_F1 || key == GLFW_KEY_F2 || key == GLFW_KEY_F5 ||
-      key == GLFW_KEY_F6) {
+  if (key == GLFW_KEY_F1 || key == GLFW_KEY_F2 || key == GLFW_KEY_F3 ||
+      key == GLFW_KEY_F5 || key == GLFW_KEY_F6) {
     SpecialKey(window, key, scancode, action, mods);
   }
 
