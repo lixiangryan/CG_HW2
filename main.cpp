@@ -547,6 +547,8 @@ void SpecialKey(GLFWwindow *window, int key, int scancode, int action,
   }
 }
 
+bool is_local_mode = false; // 紀錄目前是世界座標還是物件座標模式
+
 void KeyCallback(GLFWwindow *window, int key, int scancode, int action,
                  int mods) {
   // Here you can handle both regular and special keys.
@@ -578,99 +580,111 @@ void KeyCallback(GLFWwindow *window, int key, int scancode, int action,
     transformMat = mat4x4(1);
     break;
 
+  // 模式切換 (Z鍵)
+  case GLFW_KEY_Z:
+    is_local_mode = !is_local_mode;
+    if (is_local_mode) {
+      glfwSetWindowTitle(window, "Mode: Object Space (Local)");
+      cout << "目前模式: 物件座標模式 (Object Space Local Mode)" << endl;
+    } else {
+      glfwSetWindowTitle(window, "Mode: World Space (Global)");
+      cout << "目前模式: 世界座標模式 (World Space Global Mode)" << endl;
+    }
+    break;
+
   // translate +x (handles both 'q' and 'Q')
   case GLFW_KEY_Q:
     glfwSetWindowTitle(window, "translate +x");
-    transformMat = swTranslate(1, 0, 0) * transformMat;
+    transformMat = is_local_mode ? (transformMat * swTranslate(1, 0, 0)) : (swTranslate(1, 0, 0) * transformMat);
     break;
 
   // translate -x (handles both 'a' and 'A')
   case GLFW_KEY_A:
     glfwSetWindowTitle(window, "translate -x");
-    transformMat = swTranslate(-1, 0, 0) * transformMat;
+    transformMat = is_local_mode ? (transformMat * swTranslate(-1, 0, 0)) : (swTranslate(-1, 0, 0) * transformMat);
     break;
 
   // translate +y (handles both 'w' and 'W')
   case GLFW_KEY_W:
     glfwSetWindowTitle(window, "translate +y");
-    transformMat = swTranslate(0, 1, 0) * transformMat;
+    transformMat = is_local_mode ? (transformMat * swTranslate(0, 1, 0)) : (swTranslate(0, 1, 0) * transformMat);
     break;
 
   // translate -y (handles both 's' and 'S')
   case GLFW_KEY_S:
     glfwSetWindowTitle(window, "translate -y");
-    transformMat = swTranslate(0, -1, 0) * transformMat;
+    transformMat = is_local_mode ? (transformMat * swTranslate(0, -1, 0)) : (swTranslate(0, -1, 0) * transformMat);
     break;
 
   // translate +z / -z
   case GLFW_KEY_E:
     glfwSetWindowTitle(window, "translate +z");
-    transformMat = swTranslate(0, 0, 1) * transformMat;
+    transformMat = is_local_mode ? (transformMat * swTranslate(0, 0, 1)) : (swTranslate(0, 0, 1) * transformMat);
     break;
   case GLFW_KEY_D:
     glfwSetWindowTitle(window, "translate -z");
-    transformMat = swTranslate(0, 0, -1) * transformMat;
+    transformMat = is_local_mode ? (transformMat * swTranslate(0, 0, -1)) : (swTranslate(0, 0, -1) * transformMat);
     break;
 
   // 分別沿 X, Y, Z 軸縮放
   // X 軸縮放
   case GLFW_KEY_U:
     glfwSetWindowTitle(window, "scale +x");
-    transformMat = swScale(1.1f, 1.0f, 1.0f) * transformMat;
+    transformMat = is_local_mode ? (transformMat * swScale(1.1f, 1.0f, 1.0f)) : (swScale(1.1f, 1.0f, 1.0f) * transformMat);
     break;
   case GLFW_KEY_J:
     glfwSetWindowTitle(window, "scale -x");
-    transformMat = swScale(0.9f, 1.0f, 1.0f) * transformMat;
+    transformMat = is_local_mode ? (transformMat * swScale(0.9f, 1.0f, 1.0f)) : (swScale(0.9f, 1.0f, 1.0f) * transformMat);
     break;
 
   // Y 軸縮放
   case GLFW_KEY_I:
     glfwSetWindowTitle(window, "scale +y");
-    transformMat = swScale(1.0f, 1.1f, 1.0f) * transformMat;
+    transformMat = is_local_mode ? (transformMat * swScale(1.0f, 1.1f, 1.0f)) : (swScale(1.0f, 1.1f, 1.0f) * transformMat);
     break;
   case GLFW_KEY_K:
     glfwSetWindowTitle(window, "scale -y");
-    transformMat = swScale(1.0f, 0.9f, 1.0f) * transformMat;
+    transformMat = is_local_mode ? (transformMat * swScale(1.0f, 0.9f, 1.0f)) : (swScale(1.0f, 0.9f, 1.0f) * transformMat);
     break;
 
   // Z 軸縮放
   case GLFW_KEY_O:
     glfwSetWindowTitle(window, "scale +z");
-    transformMat = swScale(1.0f, 1.0f, 1.1f) * transformMat;
+    transformMat = is_local_mode ? (transformMat * swScale(1.0f, 1.0f, 1.1f)) : (swScale(1.0f, 1.0f, 1.1f) * transformMat);
     break;
   case GLFW_KEY_L:
     glfwSetWindowTitle(window, "scale -z");
-    transformMat = swScale(1.0f, 1.0f, 0.9f) * transformMat;
+    transformMat = is_local_mode ? (transformMat * swScale(1.0f, 1.0f, 0.9f)) : (swScale(1.0f, 1.0f, 0.9f) * transformMat);
     break;
 
   // rotate X
   case GLFW_KEY_R:
     glfwSetWindowTitle(window, "rotate +x");
-    transformMat = swRotateX(5.0f) * transformMat;
+    transformMat = is_local_mode ? (transformMat * swRotateX(5.0f)) : (swRotateX(5.0f) * transformMat);
     break;
   case GLFW_KEY_F:
     glfwSetWindowTitle(window, "rotate -x");
-    transformMat = swRotateX(-5.0f) * transformMat;
+    transformMat = is_local_mode ? (transformMat * swRotateX(-5.0f)) : (swRotateX(-5.0f) * transformMat);
     break;
 
   // rotate Y
   case GLFW_KEY_T:
     glfwSetWindowTitle(window, "rotate +y");
-    transformMat = swRotateY(5.0f) * transformMat;
+    transformMat = is_local_mode ? (transformMat * swRotateY(5.0f)) : (swRotateY(5.0f) * transformMat);
     break;
   case GLFW_KEY_G:
     glfwSetWindowTitle(window, "rotate -y");
-    transformMat = swRotateY(-5.0f) * transformMat;
+    transformMat = is_local_mode ? (transformMat * swRotateY(-5.0f)) : (swRotateY(-5.0f) * transformMat);
     break;
 
   // rotate Z
   case GLFW_KEY_Y:
     glfwSetWindowTitle(window, "rotate +z");
-    transformMat = swRotateZ(5.0f) * transformMat;
+    transformMat = is_local_mode ? (transformMat * swRotateZ(5.0f)) : (swRotateZ(5.0f) * transformMat);
     break;
   case GLFW_KEY_H:
     glfwSetWindowTitle(window, "rotate -z");
-    transformMat = swRotateZ(-5.0f) * transformMat;
+    transformMat = is_local_mode ? (transformMat * swRotateZ(-5.0f)) : (swRotateZ(-5.0f) * transformMat);
     break;
 
     // Add other keys as needed.
