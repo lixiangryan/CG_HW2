@@ -1,5 +1,18 @@
 # Computer Graphics HW2
 
+## 作業說明
+
+### 實作流程
+step1:將剪報丟入notebookLM之中，依照題目敘述請他找出對應的公式
+
+step2:將公式填入main.cpp之中
+
+step3:請agent幫我檢查是否有錯誤，並為整個區塊加上註解以便檢查
+
+step4:檢查完將該階段推上github，再繼續執行下一個階段
+
+github:git@github.com:lixiangryan/CG_HW2.git
+
 ## 控制指南 (Key Bindings)
 
 ### 模型切換與重置
